@@ -1,7 +1,7 @@
-import { pathToFileURL } from 'node:url';
-import * as logger from 'next/dist/build/output/log.js';
-import type NextNodeServer from 'next/dist/server/next-server.js';
-import type { SocketHandler } from './socket';
+import { pathToFileURL } from "node:url";
+import * as logger from "next/dist/build/output/log.js";
+import type NextNodeServer from "next/dist/server/next-server.js";
+import type { SocketHandler } from "./socket";
 
 /**
  * Create a regular expression from a route pattern.
@@ -9,10 +9,10 @@ import type { SocketHandler } from './socket';
  * @returns The regular expression
  */
 function createRouteRegex(routePattern: string) {
-  const escapedPattern = routePattern.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const escapedPattern = routePattern.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
   const paramRegex = escapedPattern
-    .replace(/\\\[([a-zA-Z0-9_]+)\\\]/g, '(?<$1>[^/]+)') // Match [param]
-    .replace(/\\\[(?:\\\.){3}([a-zA-Z0-9_]+)\\\]/g, '(?<rest_$1>.+)'); // Match [...param]
+    .replace(/\\\[([a-zA-Z0-9_]+)\\\]/g, "(?<$1>[^/]+)") // Match [param]
+    .replace(/\\\[(?:\\\.){3}([a-zA-Z0-9_]+)\\\]/g, "(?<rest_$1>.+)"); // Match [...param]
   return new RegExp(`^${paramRegex}$`);
 }
 
@@ -30,9 +30,9 @@ function getRouteParams(routePattern: string, routePath: string) {
 
   const params: Record<string, string | string[]> = {};
   for (let [k, v] of Object.entries(match.groups)) {
-    if (k.startsWith('rest_')) {
+    if (k.startsWith("rest_")) {
       k = k.slice(5);
-      v = v.split('/') as never;
+      v = v.split("/") as never;
     }
     Reflect.set(params, k, v);
   }
@@ -47,7 +47,7 @@ function getRouteParams(routePattern: string, routePath: string) {
  */
 export function resolvePathToRoute(
   nextServer: NextNodeServer,
-  requestPath: string,
+  requestPath: string
 ) {
   // @ts-expect-error - serverOptions is protected
   const basePath = nextServer.serverOptions.conf.basePath;
@@ -75,31 +75,44 @@ export function resolvePathToRoute(
  */
 export async function importRouteModule(
   nextServer: NextNodeServer,
-  filePath: string,
+  filePath: string
 ) {
   try {
     // In Next.js 14, hotReloader was removed and ensurePage was moved to NextNodeServer
-    if ('hotReloader' in nextServer) {
+    if ("hotReloader" in nextServer) {
       // @ts-expect-error - hotReloader only exists in Next.js 13
       await nextServer.hotReloader?.ensurePage({
         page: filePath,
         clientOnly: false,
       });
-    } else if ('ensurePage' in nextServer) {
+    } else if ("ensurePage" in nextServer) {
       // ensurePage throws an error in production, so we need to catch it
       // @ts-expect-error - ensurePage is protected
       await nextServer.ensurePage({ page: filePath, clientOnly: false });
     } else {
       // Future-proofing
       logger.warnOnce(
-        '[next-ws] unable to ensure page, you may need to open the route in your browser first so Next.js compiles it',
+        "[next-ws] unable to ensure page, you may need to open the route in your browser first so Next.js compiles it"
       );
     }
   } catch {}
 
   // @ts-expect-error - getPageModule is protected
   const buildPagePath = nextServer.getPagePath(filePath);
-  return importModule<RouteModule>(buildPagePath);
+  const module = await importModule<RouteModule>(buildPagePath);
+
+  // Resolve any Promise in the default export. This is needed for Next.js App
+  // Router where the default export is often a Promise. Without this, attempts
+  // to access handlers on the unresolved Promise will fail.
+  if (module?.default instanceof Promise) {
+    const resolvedDefault = await module.default;
+    return {
+      ...module,
+      default: resolvedDefault,
+    };
+  }
+
+  return module;
 }
 
 /**
@@ -134,6 +147,6 @@ export function getSocketHandler(routeModule: RouteModule) {
 
 export interface RouteModule {
   default?: RouteModule;
-  routeModule?: { userland?: RouteModule['handlers'] };
+  routeModule?: { userland?: RouteModule["handlers"] };
   handlers?: { SOCKET?: SocketHandler };
 }
