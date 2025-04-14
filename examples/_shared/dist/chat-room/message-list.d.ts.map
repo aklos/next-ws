@@ -1,0 +1,1 @@
+{"version":3,"file":"message-list.d.ts","sourceRoot":"","sources":["../../src/chat-room/message-list.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,aAAa,CAAC;AAE3C,wBAAgB,WAAW,CAAC,EAAE,QAAQ,EAAE,EAAE;IAAE,QAAQ,EAAE,OAAO,EAAE,CAAA;CAAE,+BAmChE"}
